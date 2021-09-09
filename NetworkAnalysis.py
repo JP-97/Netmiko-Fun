@@ -8,15 +8,6 @@ from contextlib import contextmanager
 import os
 from math import sqrt
 
-"""
-----------------    Network Monitoring Suite    ----------------
-
-Devices connect from local computer to Router 1 in GNS3 using the VMnet1 adapter
-
-Created By: Josh Poirier
-Date: Sept 1st
-"""
-
 #this class will model the data links interconnecting devices
 class Link:
 
