@@ -1,24 +1,25 @@
 from netmiko import ConnectHandler
-from datetime import datetime, date
 import networkx as nx
 import matplotlib.pyplot as plt
 from contextlib import contextmanager
 from math import sqrt
 from NetworkingClasses import Link, Device
-from NetworkingFunctions import Load_Devices, Interconnectivity, Collate_Run, Get_Run
+from NetworkingFunctions import load_devices, check_interconnectivity, Collate_Run, Get_Run
 
-#This is the main code function
+nodes = []  # this will hold all the nodes in the network (ie. network devices)
+edges = []  # this will hold a list of tuples representing the links between each device
+interfaces = {}  # this will hold all the interface details for each link
+device_db = []  # this will hold all the network devices in in the network
+link_db = []  # this will hold all the  data link objects in the network
+
 
 if __name__ == "__main__":
 
-    nodes = [] #this will hold all the nodes in the network (ie. network devices)
-    edges = [] #this will hold a list of tuples representing the links between each device
-    interfaces = {} #this will hold all the interface details for each link
-    device_db =  [] #this will hold all the network devices in in the network
-    link_db = [] #this will hold all the  data link objects in the network
+    #Load in the network devices from json devices.txt
+    devices = load_devices("devices.txt")
 
-    devices = Load_Devices("devices.txt") #this will hold a dict that contains the network device info for netmiko
-    Interconnectivity(devices, "Interconnectivity.txt")
+    #validate the connections in the network
+    check_interconnectivity(devices, "Interconnectivity.txt")
 
     try:
         Collate_Run(devices)
