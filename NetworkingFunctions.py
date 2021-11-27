@@ -1,7 +1,8 @@
 import sys
 import os
 import json
-
+from netmiko import ConnectHandler
+from datetime import date, datetime
 
 #This function will load in the network inventory
 def Load_Devices(device_list = None):

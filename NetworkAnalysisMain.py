@@ -7,8 +7,8 @@ from math import sqrt
 from NetworkingClasses import Link, Device
 from NetworkingFunctions import Load_Devices, Interconnectivity, Collate_Run, Get_Run
 
+#This is the main code function
 
-#This is the main body of the code to be executed
 if __name__ == "__main__":
 
     nodes = [] #this will hold all the nodes in the network (ie. network devices)
