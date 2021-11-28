@@ -1,4 +1,3 @@
-import sys
 import os
 import json
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
@@ -14,19 +13,18 @@ def load_devices(device_list = None):
         f_json = json.load(f)['devices']
         return f_json
 
-def _establish_connection(device, command = None, enable_mode = False, credentials = None):
+def _send_command(device, command = None, enable_mode = False):
     """
     This helper function is used to add some runtime checking in case the ssh connection times out, etc.
     :param device: the dict corresponding to the device you're trying to connect too
     :param command: the command that will be issued to the device
     :param enable_mode: True if the command should be executed in the device's enable mode
-    :param credentials: enable mode credentials
-    :return:
+    :return: result returned by issuing the command
     """
     try:
         net_connect = ConnectHandler(**device)
 
-        if enable_mode: #need to add functionality to pass enable credentials if there are any
+        if enable_mode:
             net_connect.enable()
 
         command_result = net_connect.send_command(command, use_textfsm = True)
@@ -49,34 +47,36 @@ def check_interconnectivity(devices, connectivity_db):
     with open(connectivity_db, 'a') as f:
         f.write(str(date.today()) + "\n")
 
-    for device in devices: #### Need to create a function that performs this loop so we dont need to keep re-writing this code
-        cdp_device = _establish_connection(device, 'show cdp neighbors')
+    for device in devices:
+        cdp_device = _send_command(device, 'show cdp neighbors')
         if cdp_device:
             with open(connectivity_db,'a') as f:
                 f.write("Neighbors for " + device["host"] + "\n")
                 for neighbor in cdp_device:
                     f.write(neighbor['neighbor'] + '\t local int: ' + neighbor['local_interface'] + '\t neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
 
-#This function will return a folder containing each device's running configuration
-def Collate_Run(devices):
-    script_location = os.path.dirname(__file__) #this will find the absolute path of the script location
-    run_time = datetime.now()
-    run_time = run_time.strftime('%m-%d-%y %H%M')
+
+def collate_run(device, running_config):
+    """
+    Used to collect the running configurations of all the devices and save them to the working directory
+    :param device: device in which the running config is being pulled
+    :param running_config: the running config response from 'show run'
+    :return: None
+    """
+    script_location = os.path.dirname(__file__) #this will find the absolute path of the script directory
+    run_time = datetime.now().strftime('%m-%d-%y %H%M')
     folder_name = "Running Configs " + run_time +"h"
+    file_name = str(device['host'] + ".txt")
 
-    os.mkdir(folder_name)
+    if not os.path.exists(os.path.join(script_location, 'Running Configs')):
+        os.mkdir(os.path.join(script_location,'Running Configs'))
 
-    for device in devices:
-        net_connect = ConnectHandler(**device)
-        running_config = net_connect.send_command('show run', use_textfsm = True) #use textfsm to format output into dict
+    running_config_dir = os.path.join(script_location, 'Running Configs')
 
-        file_name = str(device['host'] + ".txt")
-        run_config_location = os.path.join(script_location,folder_name,file_name) #creates a folder in the working directory that is date stamped with the relevant host name
+    if not os.path.exists(os.path.join(running_config_dir, folder_name)):
+        os.mkdir(os.path.join(running_config_dir,folder_name))
 
-        with open(run_config_location, 'w') as f:
-            f.write(running_config)
+    run_config_results = os.path.join(running_config_dir,folder_name,file_name)
 
-#returns the running config for a single device
-def Get_Run(device):
-    net_connect = ConnectHandler(**device)
-    return net_connect.send_command('show run', use_textfsm = True)
+    with open(run_config_results, 'w') as f:
+        f.write(running_config)
