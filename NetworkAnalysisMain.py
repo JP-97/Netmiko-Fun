@@ -1,10 +1,8 @@
 from netmiko import ConnectHandler
 import networkx as nx
 import matplotlib.pyplot as plt
-from contextlib import contextmanager
-from math import sqrt
 from NetworkingClasses import Link, Device
-from NetworkingFunctions import load_devices, check_interconnectivity, _send_command, collate_run
+from NetworkingFunctions import load_devices, check_interconnectivity, _send_command, collate_run, timer
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
 edges = []  # this will hold a list of tuples representing the links between each device
@@ -12,24 +10,33 @@ interfaces = {}  # this will hold all the interface details for each link
 device_db = []  # this will hold all the network devices in in the network
 link_db = []  # this will hold all the  data link objects in the network
 
+@timer
+def main():
+    """
+    This function captures the main checks performed against the network. Writing this within a function allows us to
+    use the timer decorator more easily
+    :return: None
+    """
+    # Load in the network devices from json devices.txt
+    devices = load_devices("devices.txt")
+    # validate the connections in the network
+    check_interconnectivity(devices, "Interconnectivity.txt")
+
+    same_device_list = True  # used so that running configs aren't split into two running config directories
+    while same_device_list == True:
+        try:
+            for device in devices:
+                running_config = _send_command(device, 'show run')
+                collate_run(device, running_config)
+        except Exception as e:
+            print('The configuration can\'t be polled twice in the same minute, the following exception was thrown: ',
+                  e)
+        finally:
+            same_device_list = False
 
 if __name__ == "__main__":
 
-    #Load in the network devices from json devices.txt
-    devices = load_devices("devices.txt")
-
-    #validate the connections in the network
-    check_interconnectivity(devices, "Interconnectivity.txt")
-
-    try:
-        for device in devices: #Need to add a check so that running configs don't get seperated for the same device list
-            running_config = _send_command(device, 'show run')
-            collate_run(device, running_config)
-
-    except Exception as e:
-        print('The configuration can\'t be polled twice in the same minute, the following exception was thrown: ', e)
-
-
+    main()
 
     #### CREATING THE GRAPH ####
     #

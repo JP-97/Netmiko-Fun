@@ -3,6 +3,15 @@ import json
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from datetime import date, datetime
 
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start_time = datetime.now()
+        result = func(*args, **kwargs)
+        end_time = datetime.now()
+        print(f"Execution time of {func.__name__} was {end_time - start_time}s using arguments {args} and {kwargs}")
+        return result
+    return wrapper
+
 def load_devices(device_list = None):
     """
     Loads in device list representative of the network
@@ -13,6 +22,7 @@ def load_devices(device_list = None):
         f_json = json.load(f)['devices']
         return f_json
 
+@timer
 def _send_command(device, command = None, enable_mode = False):
     """
     This helper function is used to add some runtime checking in case the ssh connection times out, etc.
@@ -35,7 +45,7 @@ def _send_command(device, command = None, enable_mode = False):
     except NetmikoAuthenticationException as e:
         print(f"Script could not authenticate with device and the fololwing was thrown: {e}")
 
-
+@timer
 def check_interconnectivity(devices, connectivity_db):
     """
     This function writes all of the active connections, from each device's perspective, to a database
@@ -55,7 +65,7 @@ def check_interconnectivity(devices, connectivity_db):
                 for neighbor in cdp_device:
                     f.write(neighbor['neighbor'] + '\t local int: ' + neighbor['local_interface'] + '\t neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
 
-
+@timer
 def collate_run(device, running_config):
     """
     Used to collect the running configurations of all the devices and save them to the working directory
