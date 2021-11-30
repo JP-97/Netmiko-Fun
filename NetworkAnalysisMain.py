@@ -2,7 +2,7 @@ from netmiko import ConnectHandler
 import networkx as nx
 import matplotlib.pyplot as plt
 from NetworkingClasses import Link, Device
-from NetworkingFunctions import load_devices, check_interconnectivity, _send_command, collate_run, timer
+from NetworkingFunctions import load_devices, check_interconnectivity, _send_command, collate_run, timer, parse_interface_data
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
 edges = []  # this will hold a list of tuples representing the links between each device
@@ -34,9 +34,15 @@ def main():
         finally:
             same_device_list = False
 
+    return devices
+
 if __name__ == "__main__":
 
-    main()
+    devices = main()
+
+    interface_data = _send_command(devices[0], 'show interfaces')
+    parse_interface_data(interface_data)
+
 
     #### CREATING THE GRAPH ####
     #

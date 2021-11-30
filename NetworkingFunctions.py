@@ -4,6 +4,11 @@ from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticati
 from datetime import date, datetime
 
 def timer(func):
+    """
+    Basic decorator function to calculate the execution time of various parts of the script
+    :param func: original function
+    :return: wrapped function as 'wrapper'
+    """
     def wrapper(*args, **kwargs):
         start_time = datetime.now()
         result = func(*args, **kwargs)
@@ -90,3 +95,24 @@ def collate_run(device, running_config):
 
     with open(run_config_results, 'w') as f:
         f.write(running_config)
+
+def parse_interface_data(raw_data):
+    """
+    This function will parse the interface statistics yielded by the show interfaces command
+    :param raw_data: data returned by show interfaces
+    :return: parsed_stats
+    """
+
+    interface_db = []
+
+    for interface in raw_data:
+        interface_dict = {}
+        interface_dict['interface'] = interface['interface']
+        interface_dict['ip address'] = interface['ip_address']
+        interface_dict['input packets'] = interface['input_packets']
+        interface_dict['output packets'] = interface['output_packets']
+
+        interface_db.append(interface_dict)
+
+    with open('test_interface_output.txt', 'a') as f:
+        f.write(str(interface_db))
