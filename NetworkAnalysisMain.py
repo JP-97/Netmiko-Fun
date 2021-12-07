@@ -17,32 +17,32 @@ def main():
     use the timer decorator more easily
     :return: None
     """
-    # Load in the network devices from json devices.txt
+    # Load in the network devices from json devices.txt and validate L2 connections
     devices = load_devices("devices.txt")
-    # validate the connections in the network
     check_interconnectivity(devices, "Interconnectivity.txt")
 
     same_device_list = True  # used so that running configs aren't split into two running config directories
-    while same_device_list == True:
+    while same_device_list:
         try:
             for device in devices:
                 running_config = _send_command(device, 'show run')
                 collate_run(device, running_config)
         except Exception as e:
-            print('The configuration can\'t be polled twice in the same minute, the following exception was thrown: ',
-                  e)
+            print('The configuration can\'t be polled twice in the same minute, the following exception was thrown: ', e)
         finally:
             same_device_list = False
+
+    #parse/write interface stats to interfaces_stats
+    for device in devices:
+        interface_data = _send_command(device, 'show interfaces')
+        # print(interface_data)
+        parse_interface_data(interface_data, device['host'])
 
     return devices
 
 if __name__ == "__main__":
 
-    devices = main()
-
-    interface_data = _send_command(devices[0], 'show interfaces')
-    parse_interface_data(interface_data)
-
+    device_list = main()
 
     #### CREATING THE GRAPH ####
     #

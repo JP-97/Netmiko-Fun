@@ -2,6 +2,7 @@ import os
 import json
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from datetime import date, datetime
+import pprint
 
 def timer(func):
     """
@@ -28,7 +29,7 @@ def load_devices(device_list = None):
         return f_json
 
 @timer
-def _send_command(device, command = None, enable_mode = False):
+def _send_command(device, command = None, enable_mode = False, retries = 3):
     """
     This helper function is used to add some runtime checking in case the ssh connection times out, etc.
     :param device: the dict corresponding to the device you're trying to connect too
@@ -36,19 +37,30 @@ def _send_command(device, command = None, enable_mode = False):
     :param enable_mode: True if the command should be executed in the device's enable mode
     :return: result returned by issuing the command
     """
-    try:
-        net_connect = ConnectHandler(**device)
+    current_try = 0
 
-        if enable_mode:
-            net_connect.enable()
+    while current_try <= retries:
+        try:
+            net_connect = ConnectHandler(**device)
 
-        command_result = net_connect.send_command(command, use_textfsm = True)
-        return command_result
+            if enable_mode:
+                net_connect.enable()
 
-    except NetmikoTimeoutException as e:
-        print(f"Your connection timed out and the following was thrown: {e}")
-    except NetmikoAuthenticationException as e:
-        print(f"Script could not authenticate with device and the fololwing was thrown: {e}")
+            command_result = net_connect.send_command(command, use_textfsm = True)
+            return command_result
+
+        except NetmikoTimeoutException as e:
+            print(f"Your connection timed out and the following was thrown: {e} \n")
+
+        except NetmikoAuthenticationException as e:
+            print(f"Script could not authenticate with device and the following was thrown: {e}")
+
+        current_try += 1
+        if not current_try > retries:
+            print(f"Retrying connection... retry attempt number {current_try}")
+
+    print("Max number of tries has been reached... return Null")
+    return None
 
 @timer
 def check_interconnectivity(devices, connectivity_db):
@@ -96,23 +108,44 @@ def collate_run(device, running_config):
     with open(run_config_results, 'w') as f:
         f.write(running_config)
 
-def parse_interface_data(raw_data):
+@timer
+def parse_interface_data(raw_data, hostIP = None):
     """
     This function will parse the interface statistics yielded by the show interfaces command
-    :param raw_data: data returned by show interfaces
-    :return: parsed_stats
+    :param raw_data: data returned by show interfaces command
+    :param hostIP: the IP address corresponding to the device that ran show interfaces
+    :return: None
     """
-
     interface_db = []
 
     for interface in raw_data:
-        interface_dict = {}
-        interface_dict['interface'] = interface['interface']
-        interface_dict['ip address'] = interface['ip_address']
-        interface_dict['input packets'] = interface['input_packets']
-        interface_dict['output packets'] = interface['output_packets']
+        interface_dict = dict()
 
-        interface_db.append(interface_dict)
+        if interface['ip_address']: #don't want to create a dict for interfaces that have no configurations
+            interface_dict['interface'] = interface['interface']
+            interface_dict['ip address'] = interface['ip_address']
+            interface_dict['description'] = interface['description']
+            interface_dict['input packets'] = interface['input_packets']
+            interface_dict['output packets'] = interface['output_packets']
+            interface_dict['input errors'] = interface['input_errors']
+            interface_dict['crc errors'] = interface['crc']
+            interface_dict['output errors'] = interface['output_errors']
 
-    with open('test_interface_output.txt', 'a') as f:
-        f.write(str(interface_db))
+            interface_db.append({hostIP : interface_dict})
+
+    try:
+        with open('interfaces_stats.txt', 'a') as f:
+            pprint.pprint(interface_db, stream = f, sort_dicts=False)
+
+    except Exception as e:
+        print(f'The following exception was raised: {e}')
+
+def validate_working_directory():
+    """
+    This function validates that:
+        1. The Running Configs folder exists
+        2. The Interface Stats folder exists
+        3. The interconnectivity folder exists
+    :return:
+    """
+    pass
