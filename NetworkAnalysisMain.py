@@ -2,7 +2,8 @@ from netmiko import ConnectHandler
 import networkx as nx
 import matplotlib.pyplot as plt
 from NetworkingClasses import Link, Device
-from NetworkingFunctions import load_devices, check_interconnectivity, _send_command, collate_run, timer, parse_interface_data
+from NetworkingFunctions import *
+from NetworkingFunctions import _send_command
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
 edges = []  # this will hold a list of tuples representing the links between each device
@@ -17,6 +18,9 @@ def main():
     use the timer decorator more easily
     :return: None
     """
+
+    validate_working_directory()
+
     # Load in the network devices from json devices.txt and validate L2 connections
     devices = load_devices("devices.txt")
     check_interconnectivity(devices, "Interconnectivity.txt")

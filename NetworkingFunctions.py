@@ -4,6 +4,8 @@ from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticati
 from datetime import date, datetime
 import pprint
 
+SCRIPT_LOCATION = os.path.dirname(__file__)
+
 def timer(func):
     """
     Basic decorator function to calculate the execution time of various parts of the script
@@ -90,20 +92,13 @@ def collate_run(device, running_config):
     :param running_config: the running config response from 'show run'
     :return: None
     """
-    script_location = os.path.dirname(__file__) #this will find the absolute path of the script directory
-    run_time = datetime.now().strftime('%m-%d-%y %H%M')
-    folder_name = "Running Configs " + run_time +"h"
+    dir_name = _get_runtime_dir('Running Configs')
     file_name = str(device['host'] + ".txt")
 
-    if not os.path.exists(os.path.join(script_location, 'Running Configs')):
-        os.mkdir(os.path.join(script_location,'Running Configs'))
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
 
-    running_config_dir = os.path.join(script_location, 'Running Configs')
-
-    if not os.path.exists(os.path.join(running_config_dir, folder_name)):
-        os.mkdir(os.path.join(running_config_dir,folder_name))
-
-    run_config_results = os.path.join(running_config_dir,folder_name,file_name)
+    run_config_results = os.path.join(dir_name,file_name)
 
     with open(run_config_results, 'w') as f:
         f.write(running_config)
@@ -140,12 +135,33 @@ def parse_interface_data(raw_data, hostIP = None):
     except Exception as e:
         print(f'The following exception was raised: {e}')
 
+@timer
 def validate_working_directory():
     """
     This function validates that:
         1. The Running Configs folder exists
         2. The Interface Stats folder exists
         3. The interconnectivity folder exists
-    :return:
+    :return: None
     """
-    pass
+    paths = (SCRIPT_LOCATION+'\\Running Configs',
+             SCRIPT_LOCATION+'\\Interface Stats',
+             SCRIPT_LOCATION+'\\Interconnectivity Status')
+
+    for path in paths:
+        if not os.path.exists(path):
+            print(f'Creating {path}')
+            os.mkdir(path)
+        else:
+            print(f'{path} already exists')
+
+def _get_runtime_dir(parent_dir):
+    """
+    Helper function to return a timestamped directory name
+    :param parent_dir is the parent directory where you will make the sub_dir (ie. Running Configs)
+    :return: Directory name in path notation
+    """
+    run_time = datetime.now().strftime('%m-%d-%y %H%M')
+    dir_name = parent_dir + '\\' + parent_dir + ' ' + run_time + "h"
+
+    return os.path.join(SCRIPT_LOCATION, dir_name)
