@@ -1,9 +1,33 @@
 from netmiko import ConnectHandler
 import networkx as nx
 import matplotlib.pyplot as plt
+import argparse
+import NetworkingFunctions
 from NetworkingClasses import Link, Device
 from NetworkingFunctions import *
 from NetworkingFunctions import _send_command
+import sys
+
+# Handle command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-I',
+                    '--Interconnectivity',
+                    action='store_true',
+                    help='Only interconnectivity will be captured')
+
+parser.add_argument('-R',
+                    '--Running_Configs',
+                    action='store_true',
+                    help='Only running configs will be captured')
+
+parser.add_argument('-S',
+                    '--Interface_Stats',
+                    action='store_true',
+                    help='Only interface stats will be captured')
+
+args = parser.parse_args()
+
+
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
 edges = []  # this will hold a list of tuples representing the links between each device
@@ -18,13 +42,12 @@ def main():
     use the timer decorator more easily
     :return: None
     """
+    check_interconnectivity(
+        devices, NetworkingFunctions.SCRIPT_LOCATION + "\\Interconnectivity Status\\Interconnectivity_Master.txt")
+    _execute_single_run_capture()
+    _gather_interface_stats()
 
-    validate_working_directory()
-
-    # Load in the network devices from json devices.txt and validate L2 connections
-    devices = load_devices("devices.txt")
-    check_interconnectivity(devices, "Interconnectivity.txt")
-
+def _execute_single_run_capture():
     same_device_list = True  # used so that running configs aren't split into two running config directories
     while same_device_list:
         try:
@@ -32,21 +55,38 @@ def main():
                 running_config = _send_command(device, 'show run')
                 collate_run(device, running_config)
         except Exception as e:
-            print('The configuration can\'t be polled twice in the same minute, the following exception was thrown: ', e)
+            print(
+                'The configuration can\'t be polled twice in the same minute, the following exception was thrown: ',
+                e)
         finally:
             same_device_list = False
 
-    #parse/write interface stats to interfaces_stats
+def _gather_interface_stats():
     for device in devices:
         interface_data = _send_command(device, 'show interfaces')
         # print(interface_data)
         parse_interface_data(interface_data, device['host'])
 
-    return devices
-
 if __name__ == "__main__":
+    """
+    Script launching point. Runs initial config checks and processes command line arguments.
+    """
 
-    device_list = main()
+    validate_working_directory()
+    devices = load_devices("devices.txt")
+
+    if args.Interconnectivity:
+        check_interconnectivity(
+            devices, NetworkingFunctions.SCRIPT_LOCATION + "\\Interconnectivity Status\\Interconnectivity_Master.txt")
+
+    if args.Running_Configs:
+        _execute_single_run_capture()
+
+    if args.Interface_Stats:
+        _gather_interface_stats()
+
+    if len(sys.argv) == 1:
+        main()
 
     #### CREATING THE GRAPH ####
     #
