@@ -7,6 +7,7 @@ from NetworkingClasses import Link, Device
 from NetworkingFunctions import *
 from NetworkingFunctions import _send_command
 import sys
+import logging
 
 # Handle command line arguments
 parser = argparse.ArgumentParser()
@@ -27,6 +28,9 @@ parser.add_argument('-S',
 
 args = parser.parse_args()
 
+#Configure logging environment
+logging.basicConfig(filename='Test.log', level=logging.DEBUG)
+logging.info('This is a test')
 
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)

@@ -3,6 +3,7 @@ import json
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from datetime import date, datetime
 import pprint
+import re
 
 SCRIPT_LOCATION = os.path.dirname(__file__)
 
@@ -82,7 +83,8 @@ def check_interconnectivity(devices, connectivity_db):
             with open(connectivity_db,'a') as f:
                 f.write("Neighbors for " + device["host"] + "\n")
                 for neighbor in cdp_device:
-                    f.write(neighbor['neighbor'] + '\t local int: ' + neighbor['local_interface'] + '\t neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
+                    f.write(neighbor['neighbor'] + '\t local int: ' + neighbor['local_interface'] + '\t '
+                                                   'neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
 
 @timer
 def collate_run(device, running_config):
@@ -92,8 +94,9 @@ def collate_run(device, running_config):
     :param running_config: the running config response from 'show run'
     :return: None
     """
+    device_hostname = _get_hostname(running_config)
     dir_name = _get_runtime_dir('Running Configs')
-    file_name = str(device['host'] + ".txt")
+    file_name = str(device['host'] + ' (' + device_hostname + ')' + ".txt")
 
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
@@ -165,3 +168,12 @@ def _get_runtime_dir(parent_dir):
     dir_name = parent_dir + '\\' + parent_dir + ' ' + run_time + "h"
 
     return os.path.join(SCRIPT_LOCATION, dir_name)
+
+def _get_hostname(data):
+    """
+    Helper function to parse the hostname from a running config
+    :param data: running_config_data (for now)
+    :return: hostname
+    """
+    match = re.search(r'hostname (\w+)', data)
+    return match.group(1)
