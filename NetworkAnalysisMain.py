@@ -29,8 +29,25 @@ parser.add_argument('-S',
 args = parser.parse_args()
 
 #Configure logging environment
-logging.basicConfig(filename='Test.log', level=logging.DEBUG)
-logging.info('This is a test')
+# logging.basicConfig(filename='notATest.log', level=logging.DEBUG,
+#                     format='%(asctime)s %(levelname)s %(name)s %(message)s',
+#                     datefmt='%Y/%m/%d %I:%M:%S')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+
+file_handler = logging.FileHandler('Sample.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+logger.exception('This is a test')
 
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
