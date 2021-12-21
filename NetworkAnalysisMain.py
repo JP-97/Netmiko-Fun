@@ -29,25 +29,25 @@ parser.add_argument('-S',
 args = parser.parse_args()
 
 #Configure logging environment
-# logging.basicConfig(filename='notATest.log', level=logging.DEBUG,
-#                     format='%(asctime)s %(levelname)s %(name)s %(message)s',
-#                     datefmt='%Y/%m/%d %I:%M:%S')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+main_logger = logging.getLogger(__name__)
+main_logger.setLevel(logging.DEBUG)
 
-file_handler = logging.FileHandler('Sample.log')
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.WARNING)
-console_handler.setFormatter(formatter)
+main_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+#handle logging to file <Sample.log>
+main_file_handler = logging.FileHandler('Sample.log')
+main_file_handler.setLevel(logging.DEBUG)
+main_file_handler.setFormatter(main_formatter)
 
-logger.exception('This is a test')
+#handle logging to console <stdout>
+main_console_handler = logging.StreamHandler()
+main_console_handler.setLevel(logging.WARNING)
+main_console_handler.setFormatter(main_formatter)
+
+main_logger.addHandler(main_file_handler)
+main_logger.addHandler(main_console_handler)
+
 
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
@@ -63,6 +63,7 @@ def main():
     use the timer decorator more easily
     :return: None
     """
+
     check_interconnectivity(
         devices, NetworkingFunctions.SCRIPT_LOCATION + "\\Interconnectivity Status\\Interconnectivity_Master.txt")
     _execute_single_run_capture()
@@ -75,17 +76,14 @@ def _execute_single_run_capture():
             for device in devices:
                 running_config = _send_command(device, 'show run')
                 collate_run(device, running_config)
-        except Exception as e:
-            print(
-                'The configuration can\'t be polled twice in the same minute, the following exception was thrown: ',
-                e)
+        except Exception:
+            main_logger.exception("The configuration can't be polled twice in the same minute, the following exception was thrown: ")
         finally:
             same_device_list = False
 
 def _gather_interface_stats():
     for device in devices:
         interface_data = _send_command(device, 'show interfaces')
-        # print(interface_data)
         parse_interface_data(interface_data, device['host'])
 
 if __name__ == "__main__":

@@ -4,8 +4,28 @@ from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticati
 from datetime import date, datetime
 import pprint
 import re
+import logging
 
 SCRIPT_LOCATION = os.path.dirname(__file__)
+
+#logger setup
+functions_logger = logging.getLogger(__name__)
+functions_logger.setLevel(logging.DEBUG)
+
+functions_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+
+#handle logging to file <Sample.log>
+functions_file_handler = logging.FileHandler('Sample.log')
+functions_file_handler.setLevel(logging.DEBUG)
+functions_file_handler.setFormatter(functions_formatter)
+
+#handle logging to console <stdout>
+functions_console_handler = logging.StreamHandler()
+functions_console_handler.setLevel(logging.DEBUG)
+functions_console_handler.setFormatter(functions_formatter)
+
+functions_logger.addHandler(functions_file_handler)
+functions_logger.addHandler(functions_console_handler)
 
 def timer(func):
     """
@@ -17,7 +37,7 @@ def timer(func):
         start_time = datetime.now()
         result = func(*args, **kwargs)
         end_time = datetime.now()
-        print(f"Execution time of {func.__name__} was {end_time - start_time}s using arguments {args} and {kwargs}")
+        functions_logger.info(f"Execution time of {func.__name__} was {end_time - start_time}s using arguments {args} and {kwargs}")
         return result
     return wrapper
 
@@ -27,6 +47,7 @@ def load_devices(device_list = None):
     :param device_list: location to file holding devices
     :return: dict containing json data
     """
+    functions_logger.info('Loading in device list')
     with open(device_list, 'r') as f:
         f_json = json.load(f)['devices']
         return f_json
@@ -52,17 +73,17 @@ def _send_command(device, command = None, enable_mode = False, retries = 3):
             command_result = net_connect.send_command(command, use_textfsm = True)
             return command_result
 
-        except NetmikoTimeoutException as e:
-            print(f"Your connection timed out and the following was thrown: {e} \n")
+        except NetmikoTimeoutException:
+            functions_logger.exception('Your connection timed out and the following was thrown:')
 
-        except NetmikoAuthenticationException as e:
-            print(f"Script could not authenticate with device and the following was thrown: {e}")
+        except NetmikoAuthenticationException:
+            functions_logger.exception('Script could not authenticate with device and the following was thrown:')
 
         current_try += 1
         if not current_try > retries:
-            print(f"Retrying connection... retry attempt number {current_try}")
+            functions_logger.info(f"Retrying connection... retry attempt number {current_try}")
 
-    print("Max number of tries has been reached... return Null")
+    functions_logger.error("Max number of tries has been reached... return Null")
     return None
 
 @timer
@@ -74,6 +95,7 @@ def check_interconnectivity(devices, connectivity_db):
     :return: None
     """
     #Add the date prior to iterating through all the devices
+    functions_logger.info('Checking device interconnectivity')
     with open(connectivity_db, 'a') as f:
         f.write(str(date.today()) + "\n")
 
@@ -94,6 +116,7 @@ def collate_run(device, running_config):
     :param running_config: the running config response from 'show run'
     :return: None
     """
+    functions_logger.info('Checking device running configurations')
     device_hostname = _get_hostname(running_config)
     dir_name = _get_runtime_dir('Running Configs')
     file_name = str(device['host'] + ' (' + device_hostname + ')' + ".txt")
@@ -115,6 +138,7 @@ def parse_interface_data(raw_data, hostIP = None):
     :return: None
     """
     interface_db = []
+    functions_logger.info('Gathering interface data')
 
     for interface in raw_data:
         interface_dict = dict()
@@ -135,8 +159,8 @@ def parse_interface_data(raw_data, hostIP = None):
         with open('interfaces_stats.txt', 'a') as f:
             pprint.pprint(interface_db, stream = f, sort_dicts=False)
 
-    except Exception as e:
-        print(f'The following exception was raised: {e}')
+    except Exception:
+        functions_logger.exception('The following error was encountered: ')
 
 @timer
 def validate_working_directory():
@@ -147,16 +171,17 @@ def validate_working_directory():
         3. The interconnectivity folder exists
     :return: None
     """
+    functions_logger.info('Setting up working environment')
     paths = (SCRIPT_LOCATION+'\\Running Configs',
              SCRIPT_LOCATION+'\\Interface Stats',
              SCRIPT_LOCATION+'\\Interconnectivity Status')
 
     for path in paths:
         if not os.path.exists(path):
-            print(f'Creating {path}')
+            functions_logger.debug(f'Creating {path}')
             os.mkdir(path)
         else:
-            print(f'{path} already exists')
+            functions_logger.debug(f'{path} already exists')
 
 def _get_runtime_dir(parent_dir):
     """
