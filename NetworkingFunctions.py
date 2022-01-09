@@ -1,5 +1,8 @@
 import os
 import json
+import time
+import sys
+
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from datetime import date, datetime
 import pprint
@@ -34,9 +37,9 @@ def timer(func):
     :return: wrapped function as 'wrapper'
     """
     def wrapper(*args, **kwargs):
-        start_time = datetime.now()
+        start_time = time.perf_counter()
         result = func(*args, **kwargs)
-        end_time = datetime.now()
+        end_time = time.perf_counter()
         functions_logger.info(f"Execution time of {func.__name__} was {end_time - start_time}s using arguments {args} and {kwargs}")
         return result
     return wrapper
@@ -67,24 +70,18 @@ def _send_command(device, command = None, enable_mode = False, retries = 3):
         try:
             net_connect = ConnectHandler(**device)
 
-            if enable_mode:
-                net_connect.enable()
-
-            command_result = net_connect.send_command(command, use_textfsm = True)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException):
+            functions_logger.warning('Connection could not be established!')
+            current_try += 1
+            if not current_try > retries:
+                functions_logger.info(f"Retrying connection... retry attempt number {current_try}")
+            else:
+                functions_logger.error("Max number of tries has been reached... return Null")
+                sys.exit("Fatal error... exiting script")
+        else:
+            if enable_mode: net_connect.enable()
+            command_result = net_connect.send_command(command, use_textfsm=True)
             return command_result
-
-        except NetmikoTimeoutException:
-            functions_logger.exception('Your connection timed out and the following was thrown:')
-
-        except NetmikoAuthenticationException:
-            functions_logger.exception('Script could not authenticate with device and the following was thrown:')
-
-        current_try += 1
-        if not current_try > retries:
-            functions_logger.info(f"Retrying connection... retry attempt number {current_try}")
-
-    functions_logger.error("Max number of tries has been reached... return Null")
-    return None
 
 @timer
 def check_interconnectivity(devices, connectivity_db):
@@ -101,12 +98,15 @@ def check_interconnectivity(devices, connectivity_db):
 
     for device in devices:
         cdp_device = _send_command(device, 'show cdp neighbors')
-        if cdp_device:
-            with open(connectivity_db,'a') as f:
-                f.write("Neighbors for " + device["host"] + "\n")
-                for neighbor in cdp_device:
+        with open(connectivity_db,'a') as f:
+            f.write("Neighbors for " + device["host"] + "\n")
+            for neighbor in cdp_device:
+                try:
                     f.write(neighbor['neighbor'] + '\t local int: ' + neighbor['local_interface'] + '\t '
-                                                   'neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
+                                               'neighbor_int: ' + neighbor['neighbor_interface'] + '\n')
+                except TypeError:
+                    functions_logger.error('Could not parse CDP neighbors output. Devices probably not done booting!')
+                    sys.exit("Fatal error... exiting script")
 
 @timer
 def collate_run(device, running_config):
@@ -161,6 +161,7 @@ def parse_interface_data(raw_data, hostIP = None):
 
     except Exception:
         functions_logger.exception('The following error was encountered: ')
+        sys.exit("Fatal error... exiting script")
 
 @timer
 def validate_working_directory():
@@ -178,10 +179,10 @@ def validate_working_directory():
 
     for path in paths:
         if not os.path.exists(path):
-            functions_logger.debug(f'Creating {path}')
+            functions_logger.info(f'Creating {path}')
             os.mkdir(path)
         else:
-            functions_logger.debug(f'{path} already exists')
+            functions_logger.info(f'{path} already exists')
 
 def _get_runtime_dir(parent_dir):
     """

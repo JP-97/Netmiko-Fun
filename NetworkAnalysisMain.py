@@ -32,23 +32,20 @@ args = parser.parse_args()
 
 main_logger = logging.getLogger(__name__)
 main_logger.setLevel(logging.DEBUG)
-
 main_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 
 #handle logging to file <Sample.log>
-main_file_handler = logging.FileHandler('Sample.log')
+main_file_handler = logging.FileHandler('main.log')
 main_file_handler.setLevel(logging.DEBUG)
 main_file_handler.setFormatter(main_formatter)
 
-#handle logging to console <stdout>
+#handle logging to console <stderr>
 main_console_handler = logging.StreamHandler()
 main_console_handler.setLevel(logging.WARNING)
 main_console_handler.setFormatter(main_formatter)
 
 main_logger.addHandler(main_file_handler)
 main_logger.addHandler(main_console_handler)
-
-
 
 nodes = []  # this will hold all the nodes in the network (ie. network devices)
 edges = []  # this will hold a list of tuples representing the links between each device
@@ -59,7 +56,7 @@ link_db = []  # this will hold all the  data link objects in the network
 @timer
 def main():
     """
-    This function captures the main checks performed against the network. Writing this within a function allows us to
+    This function executes the main checks performed against the network. Writing this within a function allows us to
     use the timer decorator more easily
     :return: None
     """
@@ -76,8 +73,9 @@ def _execute_single_run_capture():
             for device in devices:
                 running_config = _send_command(device, 'show run')
                 collate_run(device, running_config)
-        except Exception:
-            main_logger.exception("The configuration can't be polled twice in the same minute, the following exception was thrown: ")
+        except OSError:
+            main_logger.exception("File could not be opened!")
+            sys.exit("Fatal error... exiting script")
         finally:
             same_device_list = False
 
@@ -94,18 +92,18 @@ if __name__ == "__main__":
     validate_working_directory()
     devices = load_devices("devices.txt")
 
+    if len(sys.argv) == 1: #no args provided
+        main()
+
     if args.Interconnectivity:
         check_interconnectivity(
-            devices, NetworkingFunctions.SCRIPT_LOCATION + "\\Interconnectivity Status\\Interconnectivity_Master.txt")
+            devices, f'{NetworkingFunctions.SCRIPT_LOCATION}\\Interconnectivity Status\\Interconnectivity_Master.txt')
 
     if args.Running_Configs:
         _execute_single_run_capture()
 
     if args.Interface_Stats:
         _gather_interface_stats()
-
-    if len(sys.argv) == 1:
-        main()
 
     #### CREATING THE GRAPH ####
     #
